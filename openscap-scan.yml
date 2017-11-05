@@ -1,0 +1,17 @@
+---
+- name: This will perform a pci-dss compliance scan
+  hosts: all
+  become: true
+  tasks:
+  - name: Create an openscap audit scan for pci-dss
+    command: oscap xccdf eval --profile xccdf_org.ssgproject.content_profile_pci-dss --results-arf /tmp/{{ ansible_hostname }}-arf.xml --report=/tmp/{{ ansible_hostname }}-report.html /usr/share/xml/scap/ssg/content/ssg-rhel7-ds.xml
+    register: command_result
+    failed_when: "'FAILED' in command_result.stderr"
+
+
+  - name: copy the report to a local folder  
+    fetch:
+     src: /tmp/{{ ansible_hostname }}-report.html
+     dest: /tmp/openscap/{{ ansible_hostname }}-report.html
+     flat: yes
+

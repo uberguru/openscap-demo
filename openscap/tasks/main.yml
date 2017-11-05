@@ -1,0 +1,13 @@
+---
+# tasks file for openscap
+
+- name: install the latest of openscap scanner
+  yum:
+    name: openscap-scanner
+    state: latest
+
+- name: install the latest security policies
+  yum:
+    name: scap-security-guide
+    state: latest
+

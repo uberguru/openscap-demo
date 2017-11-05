@@ -1,0 +1,74 @@
+---
+- name: This will perform a pci-dss compliance scan
+  hosts: all
+  become: true
+  tasks:
+
+  - name: "Read list of files with incorrect permissions"
+    shell: "rpm -Va | grep '^.M' | sed -r 's;^.*\\s+(.+);\\1;g'"
+    register: files_with_incorrect_permissions
+    failed_when: False
+    changed_when: False
+
+  - name: "Correct file permissions with RPM"
+    shell: "rpm --setperms $(rpm -qf '{{item}}')"
+    with_items: "{{ files_with_incorrect_permissions.stdout_lines }}"
+    when: files_with_incorrect_permissions.stdout_lines | length > 0
+
+  - name: "Set fact: Package manager reinstall command (dnf)"
+    set_fact:
+      package_manager_reinstall_cmd: dnf reinstall -y
+    when: ansible_distribution == "Fedora"
+
+  - name: "Set fact: Package manager reinstall command (yum)"
+    set_fact:
+      package_manager_reinstall_cmd: yum reinstall -y
+    when: ansible_distribution == "RedHat"
+
+  - name: "Set fact: Package manager reinstall command (yum)"
+    set_fact:
+      package_manager_reinstall_cmd: yum reinstall -y
+    when: ansible_distribution == "OracleLinux"
+
+  - name: "Read files with incorrect hash"
+    shell: "rpm -Va | grep -E '^..5.* /(bin|sbin|lib|lib64|usr)/' | sed -r 's;^.*\\s+(.+);\\1;g'"
+    register: files_with_incorrect_hash
+    changed_when: False
+    when: package_manager_reinstall_cmd is defined
+
+  - name: "Reinstall packages of files with incorrect hash"
+    shell: "{{package_manager_reinstall_cmd}} $(rpm -qf '{{item}}')"
+    with_items: "{{ files_with_incorrect_hash.stdout_lines }}"
+    when: package_manager_reinstall_cmd is defined and (files_with_incorrect_hash.stdout_lines | length > 0)
+
+  - name: "Prevent Log In to Accounts With Empty Password"
+    replace:
+      dest: /etc/pam.d/system-auth
+      regexp: 'nullok\s*'
+      replace: ''
+
+  - name: Enable service auditd
+    service:
+      name="{{item}}"
+      enabled="yes"
+      state="started"
+    with_items:
+      - auditd
+
+
+#Low stuff 
+
+
+  - name: "Disable POST password expiration"
+    lineinfile:
+      create=yes
+      dest="/etc/default/useradd"
+      regexp="^INACTIVE"
+      line="INACTIVE=-1"
+
+  - name: Ensure libreswan is installed
+    package:
+      name="{{item}}"
+      state=present
+    with_items:
+      - libreswan
